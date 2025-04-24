@@ -124,7 +124,6 @@ async function handleStream(client: Client, args: SubscribeRequest) {
           // console.log('tokenTransfers', tokenTransfers);
           let swapEvents = events.filter((e) => e.name === 'swapEvent');
 
-          console.log('JupiterEvent', swapEvents);
           const sellEvents = swapEvents
             .map((e) => {
               bnLayoutFormatter(e);
@@ -133,7 +132,6 @@ async function handleStream(client: Client, args: SubscribeRequest) {
             .filter((e) => e.data.inputMint === SPECFIED_TOKEN.toBase58());
 
           if (sellEvents.length > 0) {
-            console.log('sellEvents', sellEvents);
             for (let event of sellEvents) {
               getPrice(event.data.outputMint).then((value) => {
                 console.log(
@@ -182,11 +180,6 @@ async function handleStream(client: Client, args: SubscribeRequest) {
         }
 
         if (determineValue.PUMP_FUN) {
-          console.log(
-            new Date(),
-            ':',
-            `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
-          );
           let parsedTxn = decodePumpFunTxn(txn);
           if (parsedTxn && parsedTxn.events.length > 0) {
             // console.log('parsedTxn', parsedTxn.events);
