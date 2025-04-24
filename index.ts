@@ -161,7 +161,6 @@ async function handleStream(client: Client, args: SubscribeRequest) {
             .filter((e) => e.data.outputMint === SPECFIED_TOKEN.toBase58());
 
           if (buyEvents.length > 0) {
-            console.log('buyEvents', buyEvents);
             for (let event of buyEvents) {
               getPrice(event.data.inputMint).then((value) => {
                 console.log(
@@ -236,11 +235,11 @@ async function handleStream(client: Client, args: SubscribeRequest) {
         //   console.log('formattedTokenChanges', formattedTokenChanges);
         // }
 
-        console.log(
-          new Date(),
-          ':',
-          `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
-        );
+        // console.log(
+        //   new Date(),
+        //   ':',
+        //   `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+        // );
       }
     }
   });
@@ -387,7 +386,7 @@ function isTransactionFromPool(
   if (programIds.includes(OPEN_BOOK_PROGRAM_ID.toBase58())) {
     returnValue.OPEN_BOOK = true;
   }
-  console.log('returnValue', returnValue);
+  // console.log('returnValue', returnValue);
   return returnValue;
 }
 
