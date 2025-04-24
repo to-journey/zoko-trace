@@ -28,6 +28,7 @@ import { getEvents } from './utils/get-events';
 import { Jupiter, jupiterIdl } from './idls/jup';
 import { intersection, difference } from 'lodash';
 import { parseTokenChanges } from './utils/parse-token-transfer';
+import { getPrice } from './utils/get-price';
 interface SubscribeRequest {
   accounts: { [key: string]: SubscribeRequestFilterAccounts };
   slots: { [key: string]: SubscribeRequestFilterSlots };
@@ -115,7 +116,6 @@ async function handleStream(client: Client, args: SubscribeRequest) {
         Date.now()
       );
       const determineValue = isTransactionFromPool(txn);
-
       // let parsedTxn = decodeJupyterTxn(txn);
       if (txn) {
         if (determineValue.JUPITER) {
@@ -124,71 +124,124 @@ async function handleStream(client: Client, args: SubscribeRequest) {
           // console.log('tokenTransfers', tokenTransfers);
           let swapEvents = events.filter((e) => e.name === 'swapEvent');
 
-          const formattedSwapEvents = swapEvents
+          console.log('JupiterEvent', swapEvents);
+          const sellEvents = swapEvents
             .map((e) => {
               bnLayoutFormatter(e);
               return e;
             })
-            .filter(
-              (e) =>
-                e.data.inputMint === SPECFIED_TOKEN.toBase58() ||
-                e.data.outputMint === SPECFIED_TOKEN.toBase58()
-            );
+            .filter((e) => e.data.inputMint === SPECFIED_TOKEN.toBase58());
 
-          if (formattedSwapEvents.length > 0) {
-            console.log('formattedSwapEvents', formattedSwapEvents);
+          if (sellEvents.length > 0) {
+            console.log('sellEvents', sellEvents);
+            for (let event of sellEvents) {
+              getPrice(event.data.outputMint).then((value) => {
+                console.log(
+                  'SellEvent',
+                  event.data.inputAmount,
+                  `(${value.symbol}):`,
+                  event.data.outAmount,
+                  'usd:',
+                  (value.maxPrice * event.data.outAmount) / 1 ** 6
+                );
+                console.log(
+                  new Date(),
+                  ':',
+                  `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+                );
+              });
+            }
+          }
+
+          const buyEvents = swapEvents
+            .map((e) => {
+              bnLayoutFormatter(e);
+              return e;
+            })
+            .filter((e) => e.data.outputMint === SPECFIED_TOKEN.toBase58());
+
+          if (buyEvents.length > 0) {
+            console.log('buyEvents', buyEvents);
+            for (let event of buyEvents) {
+              getPrice(event.data.inputMint).then((value) => {
+                console.log(
+                  'BuyEvent',
+                  event.data.outputAmount,
+                  `(${value.symbol}):`,
+                  event.data.inputAmount / 10 ** 6,
+                  'usd:',
+                  (value.maxPrice * event.data.outputAmount) / 1 ** 6
+                );
+                console.log(
+                  new Date(),
+                  ':',
+                  `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+                );
+              });
+            }
           }
         }
 
         if (determineValue.PUMP_FUN) {
+          console.log(
+            new Date(),
+            ':',
+            `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+          );
           let parsedTxn = decodePumpFunTxn(txn);
-
-          if (parsedTxn) {
-            console.log(
-              'parsedTxn',
-              parsedTxn.events.filter((e) => e.pool === POOL_ADDRESS.toBase58())
-            );
+          if (parsedTxn && parsedTxn.events.length > 0) {
+            // console.log('parsedTxn', parsedTxn.events);
+            for (let event of parsedTxn.events) {
+              getPrice('So11111111111111111111111111111111111111112').then(
+                (value) => {
+                  if (event.name === 'SellEvent') {
+                    const quoteAmount =
+                      event.data.min_quote_amount_out / 10 ** 9;
+                    console.log(
+                      event.name,
+                      event.data.base_amount_in / 10 ** 6,
+                      'sol:',
+                      quoteAmount,
+                      'usd:',
+                      value.maxPrice * quoteAmount
+                    );
+                  } else {
+                    const quoteAmount = event.data.quote_amount_in / 10 ** 9;
+                    console.log(
+                      event.name,
+                      event.data.base_amount_out / 10 ** 6,
+                      'sol:',
+                      quoteAmount,
+                      'usd:',
+                      value.maxPrice * quoteAmount
+                    );
+                  }
+                  console.log(
+                    new Date(),
+                    ':',
+                    `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+                  );
+                }
+              );
+            }
           }
         }
 
         const tokenChanges = parseTokenChanges(txn);
 
-        const formattedTokenChanges = tokenChanges.filter(
-          (t) => t.mint === SPECFIED_TOKEN.toBase58()
-        );
-        if (formattedTokenChanges.length > 0) {
-          console.log('formattedTokenChanges', formattedTokenChanges);
-        }
-        if (
-          formattedTokenChanges.length > 0 ||
-          determineValue.PUMP_FUN ||
-          determineValue.JUPITER
-        ) {
-          console.log(
-            new Date(),
-            ':',
-            `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
-            // `New transaction https://translator.shyft.to/tx/${txn.transaction.signatures[0]} \n`
-            // JSON.stringify(parsedTxn, null, 2) + '\n'
-          );
-          console.log(
-            '--------------------------------------------------------------------------------------------------'
-          );
-        }
-      }
+        // const formattedTokenChanges = tokenChanges.filter(
+        //   (t) => t.mint === SPECFIED_TOKEN.toBase58()
+        // );
+        // if (formattedTokenChanges.length > 0) {
+        //   console.log('formattedTokenChanges', formattedTokenChanges);
+        // }
 
-      // let parsedTxn = decodePumpFunTxn(txn);
-      // if (parsedTxn) {
-      //   console.log(
-      //     new Date(),
-      //     ':',
-      //     `New transaction https://translator.shyft.to/tx/${txn.transaction.signatures[0]} \n`,
-      //     JSON.stringify(parsedTxn.events[0], null, 2) + '\n'
-      //   );
-      //   console.log(
-      //     '--------------------------------------------------------------------------------------------------'
-      //   );
-      // }
+        console.log(
+          new Date(),
+          ':',
+          `New transaction https://solscan.io/tx/${txn.transaction.signatures[0]} \n`
+        );
+      }
     }
   });
 
@@ -233,11 +286,10 @@ const req: SubscribeRequest = {
     pumpFun: {
       vote: false,
       failed: false,
-      signature: undefined,
       accountInclude: [
-        // PUMP_FUN_AMM_PROGRAM_ID.toBase58(),
-        // JUPYTER_PROGRAM_ID.toBase58(),
-        // OPEN_BOOK_PROGRAM_ID.toBase58(),
+        // // PUMP_FUN_AMM_PROGRAM_ID.toBase58(),
+        // // JUPYTER_PROGRAM_ID.toBase58(),
+        // // OPEN_BOOK_PROGRAM_ID.toBase58(),
         SPECFIED_TOKEN.toBase58(),
       ],
       accountExclude: [],
@@ -281,64 +333,62 @@ function isTransactionFromPool(
     PUMP_FUN: false,
     OPEN_BOOK: false,
   };
-  try {
-    let programIds: string[] = [];
-    if (
-      txn?.transaction.message instanceof Message ||
-      txn?.transaction.message instanceof MessageV0
-    ) {
-      const accountKeys = txn.transaction.message.staticAccountKeys;
-      txn.transaction.message.compiledInstructions.forEach((instruction) => {
-        const programId = accountKeys[instruction.programIdIndex];
-        if (programId) {
-          programIds.push(programId.toBase58());
+  let programIds: string[] = [];
+
+  if (
+    txn?.transaction.message instanceof Message ||
+    txn?.transaction.message instanceof MessageV0
+  ) {
+    const accountKeys = txn.transaction.message.staticAccountKeys;
+    txn.transaction.message.compiledInstructions.forEach((instruction) => {
+      const programId = accountKeys[instruction.programIdIndex];
+      if (programId) {
+        programIds.push(programId.toBase58());
+      }
+    });
+    programIds.push(
+      ...txn.transaction.message.staticAccountKeys.map((v) => v.toBase58())
+    );
+  } else {
+    console.log('not');
+    txn.transaction.message.instructions.forEach((instruction) => {
+      programIds.push(instruction.programId.toBase58());
+    });
+  }
+  const lookupAddresses = [];
+  // Check for loaded addresses and add them to programIds
+  if (txn.meta?.loadedAddresses) {
+    if (txn.meta.loadedAddresses.writable) {
+      txn.meta.loadedAddresses.writable.forEach((address) => {
+        if (address) {
+          programIds.push(address.toBase58());
+          lookupAddresses.push(address.toBase58());
         }
       });
-      programIds.push(
-        ...txn.transaction.message.staticAccountKeys.map((v) => v.toBase58())
-      );
-    } else {
-      txn.transaction.message.instructions.forEach((instruction) => {
-        programIds.push(instruction.programId.toBase58());
+    }
+    if (txn.meta.loadedAddresses.readonly) {
+      txn.meta.loadedAddresses.readonly.forEach((address) => {
+        if (address) {
+          const read = new PublicKey(address);
+          programIds.push(read.toBase58());
+          lookupAddresses.push(read.toBase58());
+        }
       });
     }
-    const lookupAddresses = [];
-    // Check for loaded addresses and add them to programIds
-    if (txn.meta?.loadedAddresses) {
-      if (txn.meta.loadedAddresses.writable) {
-        txn.meta.loadedAddresses.writable.forEach((address) => {
-          if (address) {
-            programIds.push(address.toBase58());
-            lookupAddresses.push(address.toBase58());
-          }
-        });
-      }
-      if (txn.meta.loadedAddresses.readonly) {
-        txn.meta.loadedAddresses.readonly.forEach((address) => {
-          if (address) {
-            programIds.push(address.toBase58());
-            lookupAddresses.push(address.toBase58());
-          }
-        });
-      }
-    }
-    if (lookupAddresses.includes(SPECFIED_TOKEN.toBase58())) {
-      console.log('lookupAddresses', lookupAddresses);
-    }
-    if (programIds.includes(JUPYTER_PROGRAM_ID.toBase58())) {
-      returnValue.JUPITER = true;
-    }
-    if (programIds.includes(PUMP_FUN_AMM_PROGRAM_ID.toBase58())) {
-      returnValue.PUMP_FUN = true;
-    }
-    if (programIds.includes(OPEN_BOOK_PROGRAM_ID.toBase58())) {
-      returnValue.OPEN_BOOK = true;
-    }
-
-    return returnValue;
-  } catch (e) {
-    return returnValue;
   }
+  if (lookupAddresses.includes(SPECFIED_TOKEN.toBase58())) {
+  }
+  if (programIds.includes(JUPYTER_PROGRAM_ID.toBase58())) {
+    returnValue.JUPITER = true;
+  }
+  if (programIds.includes(PUMP_FUN_AMM_PROGRAM_ID.toBase58())) {
+    returnValue.PUMP_FUN = true;
+  }
+  if (programIds.includes(OPEN_BOOK_PROGRAM_ID.toBase58())) {
+    returnValue.OPEN_BOOK = true;
+  }
+  console.log('returnValue', returnValue);
+  return returnValue;
 }
 
 function decodeJupyterTxn(tx: VersionedTransactionResponse) {
