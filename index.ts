@@ -134,13 +134,17 @@ async function handleStream(client: Client, args: SubscribeRequest) {
           if (sellEvents.length > 0) {
             for (let event of sellEvents) {
               getPrice(event.data.outputMint).then((value) => {
+                let decimals = 6;
+                if (value.symbol == 'SOL') {
+                  decimals = 9;
+                }
                 console.log(
-                  'SellEvent',
-                  event.data.inputAmount,
+                  'Jupiter SellEvent',
+                  event.data.inputAmount / 10 ** 6,
                   `(${value.symbol}):`,
-                  event.data.outAmount,
+                  event.data.outputAmount / 10 ** decimals,
                   'usd:',
-                  (value.maxPrice * event.data.outAmount) / 1 ** 6
+                  (value.maxPrice * event.data.outputAmount) / 10 ** decimals
                 );
                 console.log(
                   new Date(),
@@ -161,13 +165,17 @@ async function handleStream(client: Client, args: SubscribeRequest) {
           if (buyEvents.length > 0) {
             for (let event of buyEvents) {
               getPrice(event.data.inputMint).then((value) => {
+                let decimals = 6;
+                if (value.symbol == 'SOL') {
+                  decimals = 9;
+                }
                 console.log(
-                  'BuyEvent',
-                  event.data.outputAmount,
+                  'Jupiter BuyEvent',
+                  event.data.outputAmount / 10 ** 6,
                   `(${value.symbol}):`,
-                  event.data.inputAmount / 10 ** 6,
+                  event.data.inputAmount / 10 ** decimals,
                   'usd:',
-                  (value.maxPrice * event.data.outputAmount) / 1 ** 6
+                  (value.maxPrice * event.data.inputAmount) / 10 ** decimals
                 );
                 console.log(
                   new Date(),
